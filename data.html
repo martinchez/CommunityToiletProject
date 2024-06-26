@@ -4,16 +4,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Visualization</title>
+    <title>Data Dashboard</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
         integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/jquery.dataTables.min.css">
     <style>
         .container {
             margin-top: 20px;
         }
 
-        #charts {
-            margin-top: 40px;
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -52,67 +56,89 @@
     </nav>
 
     <div class="container">
-        <h1 class="text-center">Data Visualization</h1>
+        <h1 class="text-center">Data Dashboard</h1>
 
-        <button id="download-btn" class="btn btn-primary mb-3">Download Data as CSV</button>
-        <table id="data-table" class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Start</th>
-                    <th>End</th>
-                    <th>Location</th>
-                    <th>Soil</th>
-                    <th>Slope</th>
-                    <th>Condition</th>
-                    <th>Cause</th>
-                    <th>Water Level</th>
-                    <th>Distance to River</th>
-                    <th>Number of People Using</th>
-                    <th>Spillage Sign</th>
-                    <th>Alternative Facilities</th>
-                    <th>Submission Time</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button id="download-btn" class="btn btn-primary">Download Data as CSV</button>
+            <button id="refresh-btn" class="btn btn-secondary">Refresh Data</button>
+        </div>
 
-        <div id="charts">
-            <canvas id="soilChart"></canvas>
-            <canvas id="slopeChart"></canvas>
-            <canvas id="conditionChart"></canvas>
-            <canvas id="causeChart"></canvas>
+        <div class="table-responsive">
+            <table id="data-table" class="table table-striped table-bordered">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Location</th>
+                        <th>Soil</th>
+                        <th>Slope</th>
+                        <th>Condition</th>
+                        <th>Cause</th>
+                        <th>Water Level</th>
+                        <th>Distance to River</th>
+                        <th>Number of People Using</th>
+                        <th>Spillage Sign</th>
+                        <th>Alternative Facilities</th>
+                        <th>Submission Time</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div id="charts" class="row">
+            <div class="col-md-6 chart-container">
+                <canvas id="soilChart"></canvas>
+            </div>
+            <div class="col-md-6 chart-container">
+                <canvas id="slopeChart"></canvas>
+            </div>
+            <div class="col-md-6 chart-container">
+                <canvas id="conditionChart"></canvas>
+            </div>
+            <div class="col-md-6 chart-container">
+                <canvas id="causeChart"></canvas>
+            </div>
         </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/data/clean_data.geojson"></script>
     <script>
         $(document).ready(function () {
-            var tableBody = $('#data-table tbody');
+            // Initialize DataTable
+            var table = $('#data-table').DataTable({
+                "paging": true,
+                "pageLength": 10,
+                "lengthChange": false,
+                "searching": false
+            });
 
+            // Load GeoJSON data
             $.getJSON('/data/clean_data.geojson', function (data) {
+                // Populate table
                 var rows = data.features.map(function (feature) {
                     var props = feature.properties;
-                    return `<tr>
-                        <td>${props.start}</td>
-                        <td>${props.end}</td>
-                        <td>${props["Pit Latrine Location"]}</td>
-                        <td>${props.soil}</td>
-                        <td>${props.slope}</td>
-                        <td>${props.condition}</td>
-                        <td>${props.Damage_Cause}</td>
-                        <td>${props.water_level}</td>
-                        <td>${props.distance_to_river}</td>
-                        <td>${props.number_people_using}</td>
-                        <td>${props.spillage_sign}</td>
-                        <td>${props.alternative_facilities_available}</td>
-                        <td>${props._submission_time}</td>
-                    </tr>`;
+                    return [
+                        props.start,
+                        props.end,
+                        props["Pit Latrine Location"],
+                        props.soil,
+                        props.slope,
+                        props.condition,
+                        props.Damage_Cause,
+                        props.water_level,
+                        props.distance_to_river,
+                        props.number_people_using,
+                        props.spillage_sign,
+                        props.alternative_facilities_available,
+                        props._submission_time
+                    ];
                 });
+                table.rows.add(rows).draw();
 
-                tableBody.html(rows.join(''));
-
+                // Prepare CSV data
                 var csvData = data.features.map(function (feature) {
                     var props = feature.properties;
                     return [
@@ -136,7 +162,6 @@
                     var csvContent = 'data:text/csv;charset=utf-8,'
                         + 'Start,End,Location,Soil,Slope,Condition,Cause,Water Level,Distance to River,Number of People Using,Spillage Sign,Alternative Facilities,Submission Time\n'
                         + csvData.join('\n');
-
                     var encodedUri = encodeURI(csvContent);
                     var link = document.createElement('a');
                     link.setAttribute('href', encodedUri);
@@ -159,16 +184,16 @@
                     causeData[props.Damage_Cause] = (causeData[props.Damage_Cause] || 0) + 1;
                 });
 
-                var createChart = function (ctx, label, data) {
-                    new Chart(ctx, {
+                var createChart = function (ctx, label, data, color) {
+                    return new Chart(ctx, {
                         type: 'bar',
                         data: {
                             labels: Object.keys(data),
                             datasets: [{
                                 label: label,
                                 data: Object.values(data),
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: color,
+                                borderColor: color,
                                 borderWidth: 1
                             }]
                         },
@@ -182,10 +207,10 @@
                     });
                 };
 
-                createChart($('#soilChart'), 'Soil Type Distribution', soilData);
-                createChart($('#slopeChart'), 'Slope Type Distribution', slopeData);
-                createChart($('#conditionChart'), 'Condition Distribution', conditionData);
-                createChart($('#causeChart'), 'Damage Cause Distribution', causeData);
+                createChart($('#soilChart'), 'Soil Type', soilData, 'rgba(75, 192, 192, 0.2)');
+                createChart($('#slopeChart'), 'Slope Type', slopeData, 'rgba(153, 102, 255, 0.2)');
+                createChart($('#conditionChart'), 'Condition', conditionData, 'rgba(255, 159, 64, 0.2)');
+                createChart($('#causeChart'), 'Damage Cause', causeData, 'rgba(255, 99, 132, 0.2)');
             });
         });
     </script>
